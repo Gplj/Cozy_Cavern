@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Cozy Cavern</title>
+<style>
+  :root{
+    --ink:#efe7d4;
+    --muted:#b9ad95;
+    --panel:rgba(20,17,16,.82);
+    --panel2:rgba(35,29,25,.9);
+    --gold:#ffc966;
+    --blue:#75d9ff;
+    --moss:#9fd17e;
+    --danger:#ff826f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#070809;color:var(--ink);font-family:ui-rounded,"Trebuchet MS",system-ui,sans-serif}
+  canvas{display:block}
+  #ui{position:fixed;inset:0;pointer-events:none}
+  .panel{background:var(--panel);border:1px solid rgba(255,255,255,.10);box-shadow:0 12px 34px rgba(0,0,0,.35);backdrop-filter:blur(8px);border-radius:14px}
+  #topbar{position:absolute;top:12px;left:12px;display:flex;gap:10px;align-items:flex-start;max-width:calc(100vw - 24px)}
+  #stats{padding:10px 12px;min-width:260px}
+  .row{display:flex;gap:10px;align-items:center;justify-content:space-between;font-size:14px}
+  .row + .row{margin-top:6px}
+  .bar{height:9px;background:rgba(255,255,255,.09);border-radius:99px;overflow:hidden;flex:1;margin-left:8px;min-width:120px}
+  .fill{height:100%;width:100%;background:linear-gradient(90deg,#ff9f55,#ffd76b);border-radius:inherit}
+  #goal{padding:10px 12px;max-width:420px;font-size:14px;line-height:1.35}
+  #toast{position:absolute;left:50%;top:14%;transform:translate(-50%,-50%);padding:10px 16px;font-weight:700;opacity:0;transition:.2s;white-space:nowrap}
+  #hint{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);padding:10px 14px;text-align:center;font-size:14px;min-width:220px;max-width:92vw}
+  #centerMsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  #intro,#upgrade,#journal,#win,#pause{pointer-events:auto;width:min(620px,92vw);padding:22px;background:rgba(18,15,14,.94)}
+  h1,h2,h3,p{margin-top:0}
+  h1{font-size:clamp(34px,7vw,64px);margin-bottom:8px;letter-spacing:-2px}
+  h2{margin-bottom:12px}
+  .subtitle{color:var(--muted);font-size:16px;line-height:1.55}
+  button{font:inherit;color:#2a2018;background:linear-gradient(#ffe39a,#ffc85f);border:0;border-radius:11px;padding:11px 15px;font-weight:800;cursor:pointer;box-shadow:0 4px 0 #9b6531;pointer-events:auto}
+  button:active{transform:translateY(2px);box-shadow:0 2px 0 #9b6531}
+  button.secondary{background:#4c443c;color:#fff;box-shadow:0 4px 0 #24201d}
+  .keys{display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;margin:18px 0;color:#d5c9b5;font-size:14px}
+  .keys b{color:white}
+  .actions{display:flex;gap:10px;flex-wrap:wrap}
+  #upgradeGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .upgradeItem{padding:12px;border-radius:12px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08)}
+  .upgradeItem h3{margin:0 0 5px;font-size:16px}
+  .upgradeItem p{font-size:13px;color:#c8bba8;margin:0 0 10px;line-height:1.35}
+  .cost{font-size:12px;color:#ffd584;margin-bottom:7px}
+  #crosshair{position:absolute;left:50%;top:50%;width:8px;height:8px;border:2px solid rgba(255,255,255,.65);border-radius:50%;transform:translate(-50%,-50%);opacity:.5}
+  #mobile{display:none}
+  .pad{pointer-events:auto;position:absolute;bottom:22px;width:152px;height:152px}
+  #joy{left:18px}
+  #joyBase{position:absolute;inset:0;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12)}
+  #joyKnob{position:absolute;left:50%;top:50%;width:58px;height:58px;border-radius:50%;background:rgba(255,224,153,.5);border:1px solid rgba(255,255,255,.25);transform:translate(-50%,-50%)}
+  #mobileButtons{position:absolute;right:16px;bottom:20px;display:grid;grid-template-columns:repeat(2,82px);gap:10px;pointer-events:auto}
+  #mobileButtons button{height:62px;padding:8px}
+  #audioBtn{position:absolute;right:12px;top:12px;padding:8px 10px;font-size:13px}
+  #vignette{position:absolute;inset:0;box-shadow:inset 0 0 110px rgba(10,25,40,0);transition:.3s;pointer-events:none}
+  #coldOverlay{position:absolute;inset:0;background:rgba(80,160,210,0);pointer-events:none;transition:.2s}
+  .hidden{display:none!important}
+  .small{font-size:12px;color:#b9ad95}
+  .accent{color:var(--gold)}
+  .crystal{color:var(--blue)}
+  .moss{color:var(--moss)}
+  @media (pointer:coarse),(max-width:800px){
+    #topbar{right:12px;display:grid;grid-template-columns:1fr}
+    #stats{min-width:0}
+    #goal{display:none}
+    #hint{bottom:186px;font-size:12px}
+    #mobile{display:block}
+    #crosshair{display:none}
+    #upgradeGrid{grid-template-columns:1fr}
+    #intro,#upgrade,#journal,#win,#pause{max-height:82vh;overflow:auto}
+  }
+</style>
+</head>
+<body>
+<div id="ui">
+  <div id="topbar">
+    <div id="stats" class="panel">
+      <div class="row"><b>Warmth</b><div class="bar"><div id="warmFill" class="fill"></div></div><span id="warmText">100</span></div>
+      <div class="row"><span>Pack</span><span id="packText">0 / 10</span></div>
+      <div class="row"><span>Stone 🪨</span><b id="stoneText">0</b><span>Crystal ✦</span><b id="crystalText">0</b><span>Moss ☘</span><b id="mossText">0</b></div>
+    </div>
+    <div id="goal" class="panel"><b id="goalTitle">Kindle the cavern</b><div id="goalText">Gather crystal and awaken the three ancient braziers.</div></div>
+  </div>
+  <button id="audioBtn" class="secondary">🔊 Sound</button>
+  <div id="toast" class="panel"></div>
+  <div id="hint" class="panel">Move with WASD / arrows. Mine nearby glowing seams with <b>E</b> or <b>Space</b>.</div>
+  <div id="crosshair"></div>
+  <div id="coldOverlay"></div>
+  <div id="vignette"></div>
+
+  <div id="centerMsg">
+    <div id="intro" class="panel">
+      <h1>Cozy Cavern</h1>
+      <p class="subtitle">The old hearth is fading, but the cavern still remembers warmth. Explore the dark, gather what glows, and rekindle three forgotten braziers before awakening the Heart below.</p>
+      <div class="keys">
+        <span><b>WASD / arrows</b> move</span><span><b>E / Space</b> mine or activate</span>
+        <span><b>R</b> withdraw crystal at hearth</span><span><b>U</b> upgrades at hearth</span>
+        <span><b>J</b> journal</span><span><b>Esc</b> pause</span>
+      </div>
+      <p class="small">Warmth drains away from lit braziers. If it reaches zero, you return to the hearth and drop half your carried haul. Resources deposited at the hearth are safe.</p>
+      <div class="actions"><button id="startBtn">Enter the cavern</button></div>
+    </div>
+
+    <div id="upgrade" class="panel hidden">
+      <h2>Hearth Workbench</h2>
+      <p class="subtitle">Spend deposited resources to make each expedition safer and longer.</p>
+      <div id="upgradeGrid"></div>
+      <div class="actions" style="margin-top:14px"><button id="closeUpgrade" class="secondary">Back to cavern</button></div>
+    </div>
+
+    <div id="journal" class="panel hidden">
+      <h2>Field Journal</h2>
+      <div id="journalText" class="subtitle"></div>
+      <div class="actions" style="margin-top:14px"><button id="closeJournal" class="secondary">Close</button></div>
+    </div>
+
+    <div id="win" class="panel hidden">
+      <h1>The Heart Is Warm</h1>
+      <p class="subtitle">The ancient cavern stirs awake. Moss brightens, crystals hum, and every passage carries the glow of home.</p>
+      <p id="winStats"></p>
+      <div class="actions"><button id="continueBtn">Keep exploring</button><button id="restartBtn" class="secondary">New cavern</button></div>
+    </div>
+
+    <div id="pause" class="panel hidden">
+      <h2>Paused</h2>
+      <p class="subtitle">The cavern will wait.</p>
+      <div class="actions"><button id="resumeBtn">Resume</button><button id="resetBtn" class="secondary">Reset save</button></div>
+    </div>
+  </div>
+
+  <div id="mobile">
+    <div id="joy" class="pad"><div id="joyBase"></div><div id="joyKnob"></div></div>
+    <div id="mobileButtons">
+      <button id="actBtn">⛏ Mine</button>
+      <button id="withdrawBtn">✦ Withdraw</button>
+      <button id="upBtn">🔥 Upgrade</button>
+      <button id="journalBtn" class="secondary">📖 Journal</button>
+      <button id="pauseBtn" class="secondary">Ⅱ Pause</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
+
+const $ = (id)=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const rand=(a,b)=>a+Math.random()*(b-a);
+const dist2=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+
+let started=false, paused=false, won=false, last=performance.now(), elapsed=0, cameraShake=0;
+const keys={};
+const touchMove={x:0,y:0};
+let interactHeld=false, actCooldown=0, autosaveT=0;
+
+const state = {
+  warmth:100, maxWarmth:100,
+  carried:{stone:0, crystal:0, moss:0},
+  bank:{stone:0, crystal:0, moss:0},
+  capacity:10,
+  pickDamage:1,
+  speed:7.4,
+  hearthRadius:8,
+  warmthDrain:3.3,
+  brazierCount:0,
+  upgrades:{satchel:0,pick:0,boots:0,hearth:0,thermos:0},
+  mined:0,
+  faints:0,
+  braziers:[false,false,false],
+  heartAwake:false
+};
+
+const upgradeDefs = {
+  satchel:{name:"Bigger Satchel", desc:"Carry 5 more pieces before returning.", max:4, costs:[
+    {stone:8,moss:2},{stone:14,crystal:3},{stone:22,crystal:5},{stone:30,crystal:8,moss:6}
+  ], apply(){state.capacity+=5}},
+  pick:{name:"Crystal Pick", desc:"Mine seams faster with stronger strikes.", max:4, costs:[
+    {stone:10,crystal:2},{stone:16,crystal:4},{stone:24,crystal:7},{stone:34,crystal:12}
+  ], apply(){state.pickDamage+=0.75}},
+  boots:{name:"Softstep Boots", desc:"Move faster through the cavern.", max:3, costs:[
+    {stone:7,moss:4},{stone:14,moss:7},{stone:22,moss:10,crystal:4}
+  ], apply(){state.speed+=1.0}},
+  hearth:{name:"Hearthstones", desc:"Increase the safe warm radius around home.", max:3, costs:[
+    {stone:12,moss:3},{stone:20,crystal:5},{stone:30,crystal:8,moss:8}
+  ], apply(){state.hearthRadius+=2.5; updateHearthRing()}},
+  thermos:{name:"Ember Flask", desc:"Increase maximum warmth by 20.", max:4, costs:[
+    {stone:8,crystal:3},{stone:14,crystal:5,moss:5},{stone:22,crystal:8,moss:8},{stone:30,crystal:12,moss:12}
+  ], apply(){state.maxWarmth+=20;state.warmth=Math.min(state.maxWarmth,state.warmth+20)}}
+};
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x080a0c);
+scene.fog=new THREE.FogExp2(0x080a0c,0.025);
+
+const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:"high-performance"});
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.8));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+document.body.prepend(renderer.domElement);
+
+const camera=new THREE.PerspectiveCamera(58,innerWidth/innerHeight,.1,180);
+camera.position.set(0,15,15);
+
+scene.add(new THREE.HemisphereLight(0x61758e,0x17100c,.28));
+const moon=new THREE.DirectionalLight(0x9bb8cf,.22);
+moon.position.set(-15,25,10);
+scene.add(moon);
+
+const floorMat=new THREE.MeshStandardMaterial({color:0x171716,roughness:.98,metalness:0});
+const floor=new THREE.Mesh(new THREE.CircleGeometry(48,72),floorMat);
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+
+const outerWallMat=new THREE.MeshStandardMaterial({color:0x252320,roughness:1});
+const rockMat=new THREE.MeshStandardMaterial({color:0x302c27,roughness:1});
+const mineStoneMat=new THREE.MeshStandardMaterial({color:0x70695e,roughness:.88,metalness:.04});
+const stoneSeamMat=new THREE.MeshStandardMaterial({color:0xd69b4e,emissive:0x6b3515,emissiveIntensity:1.35,roughness:.5});
+const mossMat=new THREE.MeshStandardMaterial({color:0x4f6d46,roughness:.9,emissive:0x142112,emissiveIntensity:.4});
+const crystalMat=new THREE.MeshStandardMaterial({color:0x79dfff,emissive:0x318ec4,emissiveIntensity:1.9,roughness:.3});
+const warmMat=new THREE.MeshStandardMaterial({color:0xff9d43,emissive:0xff5b1f,emissiveIntensity:2.4,roughness:.55});
+const emberMat=new THREE.MeshStandardMaterial({color:0xffdc7c,emissive:0xff8e32,emissiveIntensity:4,roughness:.2});
+
+function rockMesh(x,z,s=1,h=1){
+  const g=new THREE.DodecahedronGeometry(s,0);
+  const m=new THREE.Mesh(g,rockMat.clone());
+  m.scale.set(rand(.8,1.25),h*rand(.85,1.3),rand(.8,1.2));
+  m.position.set(x,s*h*.5-0.15,z);
+  m.rotation.set(rand(-.2,.2),rand(0,6.28),rand(-.2,.2));
+  m.castShadow=m.receiveShadow=true; scene.add(m); return m;
+}
+
+for(let i=0;i<120;i++){
+  const a=i/120*Math.PI*2;
+  const r=46+rand(-1.7,1.2);
+  rockMesh(Math.cos(a)*r,Math.sin(a)*r,rand(1.8,3.4),rand(1.6,3.2));
+}
+const reservedClearings=[
+  {x:-31,z:18,r:5},{x:30,z:19,r:5},{x:2,z:-35,r:5.5},{x:0,z:-43,r:6}
+];
+for(let i=0;i<55;i++){
+  const a=rand(0,Math.PI*2), r=rand(12,43);
+  const x=Math.cos(a)*r,z=Math.sin(a)*r;
+  if(Math.hypot(x,z)<9) continue;
+  if(reservedClearings.some(c=>Math.hypot(x-c.x,z-c.z)<c.r)) continue;
+  rockMesh(x,z,rand(.5,1.35),rand(.7,1.7));
+}
+for(let i=0;i<120;i++){
+  const g=new THREE.CircleGeometry(rand(.12,.35),7);
+  const m=new THREE.Mesh(g, new THREE.MeshBasicMaterial({color: Math.random()<.65?0x20201e:0x263026, transparent:true, opacity:rand(.25,.65), depthWrite:false}));
+  m.rotation.x=-Math.PI/2; m.position.set(rand(-42,42),.012,rand(-42,42));
+  if(Math.hypot(m.position.x,m.position.z)<46) scene.add(m);
+}
+
+const hearth=new THREE.Group(); hearth.position.set(0,0,0); scene.add(hearth);
+for(let i=0;i<10;i++){
+  const a=i/10*Math.PI*2;
+  const s=rockMesh(Math.cos(a)*2.1,Math.sin(a)*2.1,.65,.7);
+  hearth.add(s); scene.remove(s);
+}
+const fireLight=new THREE.PointLight(0xff8f3f,4.2,22,2);
+fireLight.position.set(0,2.2,0); fireLight.castShadow=true; fireLight.shadow.mapSize.set(512,512); hearth.add(fireLight);
+const flame=new THREE.Mesh(new THREE.OctahedronGeometry(.72,1),emberMat);
+flame.position.y=.75; flame.scale.set(.7,1.4,.7); hearth.add(flame);
+const flame2=new THREE.Mesh(new THREE.OctahedronGeometry(.45,1),warmMat);
+flame2.position.set(.25,1.05,.15); flame2.rotation.z=.5; hearth.add(flame2);
+const hearthRing=new THREE.Mesh(new THREE.RingGeometry(7.85,8,80),new THREE.MeshBasicMaterial({color:0xff9d55,transparent:true,opacity:.18,side:THREE.DoubleSide}));
+hearthRing.rotation.x=-Math.PI/2; hearthRing.position.y=.03; scene.add(hearthRing);
+function updateHearthRing(){hearthRing.geometry.dispose();hearthRing.geometry=new THREE.RingGeometry(state.hearthRadius-.15,state.hearthRadius,80)}
+
+const player=new THREE.Group(); scene.add(player);
+const body=new THREE.Mesh(new THREE.CapsuleGeometry(.48,.85,4,8),new THREE.MeshStandardMaterial({color:0xb9865f,roughness:.9}));
+body.position.y=1.0; body.castShadow=true; player.add(body);
+const hood=new THREE.Mesh(new THREE.SphereGeometry(.52,16,12),new THREE.MeshStandardMaterial({color:0x6c4937,roughness:.95}));
+hood.position.set(0,1.65,0); hood.scale.y=.9; hood.castShadow=true; player.add(hood);
+const face=new THREE.Mesh(new THREE.SphereGeometry(.38,14,10),new THREE.MeshStandardMaterial({color:0xe6c3a0,roughness:.9}));
+face.position.set(0,1.62,.26); face.scale.set(.9,.8,.55); player.add(face);
+const lanternLight=new THREE.PointLight(0xffc36b,2.2,10,2);
+lanternLight.position.set(.65,1.1,.2); player.add(lanternLight);
+const lantern=new THREE.Mesh(new THREE.BoxGeometry(.24,.32,.18),emberMat);
+lantern.position.copy(lanternLight.position); player.add(lantern);
+player.position.set(0,0,4);
+
+const nodes=[];
+function makeCrystalCluster(colorMat, n=5, scale=1){
+  const group=new THREE.Group();
+  for(let i=0;i<n;i++){
+    const geo=new THREE.ConeGeometry(rand(.18,.32)*scale,rand(.7,1.4)*scale,5);
+    const m=new THREE.Mesh(geo,colorMat.clone());
+    m.rotation.z=rand(-.55,.55); m.rotation.y=rand(0,6.28);
+    m.position.set(rand(-.45,.45)*scale,rand(.25,.65)*scale,rand(-.35,.35)*scale);
+    m.castShadow=true; group.add(m);
+  }
+  return group;
+}
+function spawnNode(type,x,z,rich=1){
+  const g=new THREE.Group(); g.position.set(x,0,z); scene.add(g);
+  let maxHp=type==="stone"?4:type==="moss"?3:5;
+  maxHp*=rich;
+  if(type==="crystal"){
+    g.add(makeCrystalCluster(crystalMat,5+rich,1));
+    const l=new THREE.PointLight(0x53c9ff,.9+rich*.18,5+rich,2); l.position.y=1; g.add(l);
+  }else if(type==="moss"){
+    const base=rockMesh(0,0,.8,.6); scene.remove(base); g.add(base);
+    for(let i=0;i<7;i++){
+      const puff=new THREE.Mesh(new THREE.SphereGeometry(rand(.18,.33),10,8),mossMat);
+      puff.scale.y=.45; puff.position.set(rand(-.55,.55),rand(.25,.5),rand(-.5,.5)); g.add(puff);
+    }
+  }else{
+    for(let i=0;i<3;i++){
+      const r=new THREE.Mesh(new THREE.DodecahedronGeometry(rand(.45,.75),0),mineStoneMat.clone());
+      r.scale.set(rand(.85,1.18),rand(.7,1.15),rand(.85,1.18));
+      r.position.set(rand(-.42,.42),rand(.3,.55),rand(-.4,.4));
+      r.rotation.set(rand(-.25,.25),rand(0,6.28),rand(-.25,.25));
+      r.castShadow=r.receiveShadow=true; g.add(r);
+    }
+    for(let i=0;i<4;i++){
+      const seam=new THREE.Mesh(new THREE.ConeGeometry(rand(.055,.09),rand(.35,.65),4),stoneSeamMat.clone());
+      seam.position.set(rand(-.55,.55),rand(.48,.9),rand(-.48,.48));
+      seam.rotation.set(rand(-.8,.8),rand(0,6.28),rand(-.8,.8));
+      seam.castShadow=true; g.add(seam);
+    }
+    const glint=new THREE.PointLight(0xd88a3d,.3+rich*.05,3.2,2);glint.position.y=.75;g.add(glint);
+  }
+  const node={type,group:g,hp:maxHp,maxHp,rich,alive:true,respawn:0};
+  nodes.push(node); return node;
+}
+const nodeSpots=[
+  ["stone",-10,4,1],["stone",9,7,1],["moss",-6,-11,1],["crystal",11,-8,1],
+  ["stone",-18,-6,2],["crystal",-22,8,1],["moss",-26,-4,2],["stone",22,6,2],
+  ["crystal",26,14,2],["moss",19,21,1],["stone",-11,24,2],["crystal",-4,29,2],
+  ["moss",-27,24,2],["crystal",31,-8,2],["stone",33,-20,2],["moss",14,-30,2],
+  ["crystal",-18,-31,2],["stone",-31,-21,2],["crystal",3,-38,3],["moss",37,3,3],
+  ["stone",26,31,3],["crystal",-34,14,3],["moss",-2,38,3]
+];
+nodeSpots.forEach(n=>spawnNode(...n));
+
+const braziers=[];
+const brazierData=[
+  {x:-31,z:18,cost:8,name:"Mosslight Brazier"},
+  {x:30,z:19,cost:12,name:"Amber Brazier"},
+  {x:2,z:-35,cost:16,name:"Deepglass Brazier"}
+];
+function makeBrazier(d,i){
+  const g=new THREE.Group();g.position.set(d.x,0,d.z);scene.add(g);
+  for(let k=0;k<7;k++){
+    const a=k/7*Math.PI*2;
+    const r=rockMesh(Math.cos(a)*1.25,Math.sin(a)*1.25,.48,.6);scene.remove(r);g.add(r);
+  }
+  const bowl=new THREE.Mesh(new THREE.CylinderGeometry(.9,.65,.5,10),new THREE.MeshStandardMaterial({color:0x4c4137,roughness:1}));
+  bowl.position.y=.55;g.add(bowl);
+  const flame=new THREE.Mesh(new THREE.OctahedronGeometry(.5,1),emberMat.clone());flame.position.y=1.2;flame.visible=false;g.add(flame);
+  const light=new THREE.PointLight(0xff9a49,0,14,2);light.position.y=2;g.add(light);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(7.9,8.1,64),new THREE.MeshBasicMaterial({color:0xffb15a,transparent:true,opacity:0,side:THREE.DoubleSide}));
+  ring.rotation.x=-Math.PI/2;ring.position.y=.035;g.add(ring);
+  braziers.push({...d,index:i,group:g,flame,light,ring,lit:false});
+}
+brazierData.forEach(makeBrazier);
+
+const heart=new THREE.Group();heart.position.set(0,0,-43);scene.add(heart);
+const heartBase=new THREE.Mesh(new THREE.CylinderGeometry(2.4,3.2,1.0,9),new THREE.MeshStandardMaterial({color:0x2a2826,roughness:1}));
+heartBase.position.y=.5;heart.add(heartBase);
+const heartCrystal=makeCrystalCluster(new THREE.MeshStandardMaterial({color:0x8bdfff,emissive:0x1a4b62,emissiveIntensity:.7,roughness:.25}),9,2.2);
+heartCrystal.position.y=.5;heart.add(heartCrystal);
+const heartLight=new THREE.PointLight(0x5fcfff,.7,12,2);heartLight.position.y=2;heart.add(heartLight);
+
+for(let i=0;i<9;i++){
+  const stal=new THREE.Mesh(new THREE.ConeGeometry(rand(.6,1.4),rand(2,5),7),outerWallMat);
+  const a=i/9*Math.PI*2+rand(-.2,.2), r=rand(34,42);
+  stal.position.set(Math.cos(a)*r,rand(1,2.2),Math.sin(a)*r);
+  stal.castShadow=true;scene.add(stal);
+}
+
+const motes=[];
+const moteGeo=new THREE.SphereGeometry(.035,5,4);
+for(let i=0;i<100;i++){
+  const m=new THREE.Mesh(moteGeo,new THREE.MeshBasicMaterial({color:Math.random()<.8?0xffd68d:0x9ee7ff,transparent:true,opacity:rand(.15,.65)}));
+  const a=rand(0,6.28),r=rand(2,43);
+  m.position.set(Math.cos(a)*r,rand(.3,5),Math.sin(a)*r);
+  m.userData.v=rand(.05,.22);m.userData.p=rand(0,6.28);scene.add(m);motes.push(m);
+}
+
+let audioCtx=null, masterGain=null, ambientOsc=null;
+function ensureAudio(){
+  if(audioCtx) { if(audioCtx.state==="suspended") audioCtx.resume(); return; }
+  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+  masterGain=audioCtx.createGain();masterGain.gain.value=.22;masterGain.connect(audioCtx.destination);
+  ambientOsc=audioCtx.createOscillator();const ag=audioCtx.createGain();
+  ambientOsc.type="sine";ambientOsc.frequency.value=55;ag.gain.value=.012;ambientOsc.connect(ag).connect(masterGain);ambientOsc.start();
+}
+function tone(freq=440,dur=.12,type="sine",vol=.18,slide=1){
+  if(!audioCtx||masterGain.gain.value===0)return;
+  const o=audioCtx.createOscillator(),g=audioCtx.createGain();
+  o.type=type;o.frequency.setValueAtTime(freq,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(Math.max(40,freq*slide),audioCtx.currentTime+dur);
+  g.gain.setValueAtTime(vol,audioCtx.currentTime);g.gain.exponentialRampToValueAtTime(.0001,audioCtx.currentTime+dur);
+  o.connect(g).connect(masterGain);o.start();o.stop(audioCtx.currentTime+dur);
+}
+function chord(){
+  [392,523.25,659.25].forEach((f,i)=>setTimeout(()=>tone(f,.7,"sine",.08,1.02),i*90));
+}
+
+function totalCarried(){return state.carried.stone+state.carried.crystal+state.carried.moss}
+function nearestNode(){
+  let best=null,bd=2.45;
+  for(const n of nodes){if(!n.alive)continue;const d=dist2(player.position,n.group.position);if(d<bd){bd=d;best=n}}
+  return best;
+}
+function nearestBrazier(){
+  let best=null,bd=2.7; for(const b of braziers){const d=dist2(player.position,b.group.position);if(d<bd){bd=d;best=b}} return best;
+}
+function inHearth(){return dist2(player.position,{x:0,z:0})<state.hearthRadius}
+function inAnyWarmZone(){
+  if(inHearth())return true;
+  for(const b of braziers)if(b.lit&&dist2(player.position,b.group.position)<8)return true;
+  return false;
+}
+function deposit(){
+  const t=totalCarried(); if(!t)return;
+  for(const k of ["stone","crystal","moss"]){state.bank[k]+=state.carried[k];state.carried[k]=0}
+  toast(`Deposited ${t} resources at the hearth.`);
+  tone(330,.14,"triangle",.13,1.3);setTimeout(()=>tone(494,.22,"sine",.12,1.04),80);
+  save();
+}
+function withdrawCrystal(){
+  ensureAudio();
+  if(paused||!started)return;
+  if(!inHearth()){toast("Crystal can only be withdrawn at the hearth.");return}
+  const free=state.capacity-totalCarried();
+  if(free<=0){toast("Your satchel is already full.");return}
+  if(state.bank.crystal<=0){toast("No deposited crystal is available.");return}
+  const amount=Math.min(free,state.bank.crystal);
+  state.bank.crystal-=amount;state.carried.crystal+=amount;
+  toast(`Withdrew ${amount} crystal for the expedition.`);
+  tone(620,.12,"triangle",.11,1.18);setTimeout(()=>tone(820,.18,"sine",.09,1.05),70);
+  updateUI();save();
+}
+function toast(msg){
+  const e=$("toast");e.textContent=msg;e.style.opacity=1;clearTimeout(toast.t);toast.t=setTimeout(()=>e.style.opacity=0,1900);
+}
+function pickup(type,amt){
+  const free=state.capacity-totalCarried();if(free<=0){toast("Your satchel is full. Return to the hearth.");return 0}
+  const got=Math.min(free,amt);state.carried[type]+=got;state.mined+=got;updateUI();return got;
+}
+function mine(n){
+  if(!n||actCooldown>0)return;
+  actCooldown=.27;
+  n.hp-=state.pickDamage;
+  n.group.scale.set(1.12,.88,1.12);setTimeout(()=>n.group.scale.set(1,1,1),80);
+  cameraShake=.16;tone(n.type==="crystal"?720:n.type==="moss"?280:170,.08,n.type==="stone"?"square":"triangle",.08,.75);
+  if(n.hp<=0){
+    const amt=n.rich+(Math.random()<.3?1:0);
+    const got=pickup(n.type,amt);
+    if(got>0){
+      tone(n.type==="crystal"?950:420,.15,"sine",.12,1.25);
+      n.alive=false;n.group.visible=false;n.respawn=20+Math.random()*18;n.hp=n.maxHp;
+    }else n.hp=.2;
+  }
+}
+function lightBrazier(b){
+  if(b.lit)return;
+  if(state.carried.crystal>=b.cost){
+    state.carried.crystal-=b.cost;b.lit=true;state.braziers[b.index]=true;state.brazierCount++;
+    b.flame.visible=true;b.light.intensity=3.5;b.ring.material.opacity=.2;
+    state.maxWarmth+=10;state.warmth=Math.min(state.maxWarmth,state.warmth+30);
+    toast(`${b.name} rekindled. The cavern grows warmer.`);
+    chord();updateUI();save();
+  }else{
+    toast(`${b.name} needs ${b.cost} carried crystal (${state.carried.crystal}/${b.cost}).`);
+    tone(110,.18,"sawtooth",.07,.7);
+  }
+}
+function interact(){
+  ensureAudio();
+  if(paused||!started)return;
+  if(inHearth()){deposit();return}
+  const b=nearestBrazier();if(b){lightBrazier(b);return}
+  if(state.brazierCount===3 && dist2(player.position,heart.position)<3.8){
+    if(state.heartAwake)return;
+    const need=20;
+    if(state.carried.crystal>=need){
+      state.carried.crystal-=need;awakenHeart();
+    } else toast(`The Heart needs ${need} carried crystal (${state.carried.crystal}/${need}).`);
+    return;
+  }
+  mine(nearestNode());
+}
+function awakenHeart(){
+  state.heartAwake=true;won=true;
+  heartLight.color.set(0xffd271);heartLight.intensity=7;heartLight.distance=30;
+  heartCrystal.traverse(o=>{if(o.material&&o.material.emissive){o.material.emissive.set(0xff8b35);o.material.emissiveIntensity=3}});
+  for(const b of braziers){b.light.intensity=4.2}
+  chord();setTimeout(chord,500);
+  updateUI();save();
+  $("winStats").textContent=`You gathered ${state.mined} resources and fainted ${state.faints} time${state.faints===1?"":"s"}.`;
+  showModal("win");
+}
+function faint(){
+  state.faints++;
+  for(const k of ["stone","crystal","moss"])state.carried[k]=Math.floor(state.carried[k]/2);
+  player.position.set(0,0,4);state.warmth=Math.max(50,state.maxWarmth*.6);
+  toast("The cold sends you back to the hearth. Half your carried haul was lost.");
+  tone(140,.6,"sine",.13,.5);updateUI();save();
+}
+
+function updateHint(){
+  if(paused||!started){return}
+  let msg="";
+  if(inHearth()){
+    const withdraw=state.bank.crystal>0?` Press <b>R</b> to withdraw crystal.`:"";
+    msg=totalCarried()>0?`Hearth: press <b>E</b> to deposit ${totalCarried()} carried resources.${withdraw} Press <b>U</b> for upgrades.`:`Safe at the hearth.${withdraw} Press <b>U</b> for upgrades.`;
+  } else {
+    const b=nearestBrazier();
+    if(b) msg=b.lit?`${b.name} is warm and steady.`:`${b.name}: press <b>E</b> to offer ${b.cost} crystal.`;
+    else if(state.brazierCount===3 && dist2(player.position,heart.position)<4) msg=`The Heart waits. Press <b>E</b> to offer 20 crystal.`;
+    else {
+      const n=nearestNode();
+      if(n) msg=`Press <b>E</b> or <b>Space</b> to mine ${n.type}.`;
+      else msg=`Explore, mine glowing seams, and return before your warmth runs out.`;
+    }
+  }
+  $("hint").innerHTML=msg;
+}
+function updateGoal(){
+  if(state.heartAwake){
+    $("goalTitle").textContent="The cavern is awake";
+    $("goalText").textContent="You won. Keep exploring, perfect your upgrades, or start a new cavern.";
+  } else if(state.brazierCount<3){
+    $("goalTitle").textContent=`Kindle the cavern — ${state.brazierCount}/3 braziers`;
+    const next=brazierData.find((b,i)=>!state.braziers[i]);
+    $("goalText").textContent=`Gather crystal and awaken the three ancient braziers. Each one creates a warm refuge.`;
+  } else {
+    $("goalTitle").textContent="Awaken the Heart";
+    $("goalText").textContent="All three braziers burn. Carry 20 crystal to the great formation at the far southern edge.";
+  }
+}
+function updateUI(){
+  $("warmText").textContent=Math.ceil(state.warmth);
+  $("warmFill").style.width=(state.warmth/state.maxWarmth*100)+"%";
+  $("packText").textContent=`${totalCarried()} / ${state.capacity}`;
+  $("stoneText").textContent=`${state.carried.stone} · ${state.bank.stone}`;
+  $("crystalText").textContent=`${state.carried.crystal} · ${state.bank.crystal}`;
+  $("mossText").textContent=`${state.carried.moss} · ${state.bank.moss}`;
+  updateGoal();
+}
+function canAfford(c){return Object.entries(c).every(([k,v])=>state.bank[k]>=v)}
+function costText(c){return Object.entries(c).map(([k,v])=>`${v} ${k}`).join(" · ")}
+function renderUpgrades(){
+  const grid=$("upgradeGrid");grid.innerHTML="";
+  for(const [key,d] of Object.entries(upgradeDefs)){
+    const lvl=state.upgrades[key], maxed=lvl>=d.max, cost=maxed?null:d.costs[lvl];
+    const div=document.createElement("div");div.className="upgradeItem";
+    div.innerHTML=`<h3>${d.name} <span class="small">Lv ${lvl}/${d.max}</span></h3><p>${d.desc}</p><div class="cost">${maxed?"Fully upgraded":costText(cost)}</div>`;
+    const btn=document.createElement("button");btn.textContent=maxed?"Maxed":"Build";btn.disabled=maxed||!canAfford(cost);
+    if(btn.disabled)btn.style.opacity=.45;
+    btn.onclick=()=>{if(maxed||!canAfford(cost))return;for(const [k,v] of Object.entries(cost))state.bank[k]-=v;state.upgrades[key]++;d.apply();tone(520,.12,"triangle",.12,1.5);setTimeout(()=>tone(780,.2,"sine",.1,1.1),80);renderUpgrades();updateUI();save()};
+    div.appendChild(btn);grid.appendChild(div);
+  }
+}
+function journalText(){
+  const lit=braziers.map((b,i)=>`${state.braziers[i]?"🔥":"○"} ${b.name} — ${state.braziers[i]?"lit":b.cost+" crystal"}`).join("<br>");
+  return `<p><b>Deposited resources</b><br>Stone ${state.bank.stone} · Crystal ${state.bank.crystal} · Moss ${state.bank.moss}</p>
+  <p><b>Braziers</b><br>${lit}</p>
+  <p><b>Expedition notes</b><br>Warmth drains only outside the hearth and lit brazier circles. Crystal seams are brightest and usually richest farther from home. Fainting costs half of what is currently in your satchel, never what is deposited. At the hearth, press R to withdraw deposited crystal back into your satchel up to its carrying limit.</p>
+  <p><b>Final rite</b><br>${state.brazierCount<3?"Light all three braziers first.":"Carry 20 crystal to the great Heart formation at the far southern edge."}</p>`;
+}
+function showModal(id){
+  paused=true;
+  for(const x of ["intro","upgrade","journal","win","pause"])$(x).classList.add("hidden");
+  $(id).classList.remove("hidden");$("centerMsg").style.display="flex";
+  if(id==="upgrade")renderUpgrades();
+  if(id==="journal")$("journalText").innerHTML=journalText();
+}
+function hideModal(){
+  if(!started)return;
+  paused=false;$("centerMsg").style.display="none";
+  for(const x of ["intro","upgrade","journal","win","pause"])$(x).classList.add("hidden");
+}
+function openUpgrade(){if(started&&inHearth())showModal("upgrade");else if(started)toast("The workbench is back at the hearth.")}
+function toggleJournal(){if(started)showModal("journal")}
+
+function save(){
+  try{localStorage.setItem("cozyCavernSave",JSON.stringify({
+    state,
+    player:{x:player.position.x,z:player.position.z},
+    savedAt:Date.now()
+  }))}catch(e){}
+}
+function load(){
+  try{
+    const raw=localStorage.getItem("cozyCavernSave");if(!raw)return false;
+    const s=JSON.parse(raw);
+    if(!s.state)return false;
+    Object.assign(state,s.state);
+    state.carried=Object.assign({stone:0,crystal:0,moss:0},s.state.carried||{});
+    state.bank=Object.assign({stone:0,crystal:0,moss:0},s.state.bank||{});
+    state.upgrades=Object.assign({satchel:0,pick:0,boots:0,hearth:0,thermos:0},s.state.upgrades||{});
+    player.position.set(s.player?.x||0,0,s.player?.z||4);
+    updateHearthRing();
+    state.braziers.forEach((lit,i)=>{if(lit){const b=braziers[i];b.lit=true;b.flame.visible=true;b.light.intensity=3.5;b.ring.material.opacity=.2}});
+    if(state.heartAwake){heartLight.color.set(0xffd271);heartLight.intensity=7;heartLight.distance=30;heartCrystal.traverse(o=>{if(o.material&&o.material.emissive){o.material.emissive.set(0xff8b35);o.material.emissiveIntensity=3}})}
+    return true;
+  }catch(e){return false}
+}
+const hadSave=load(); updateUI();
+if(hadSave){
+  const p=document.createElement("p");p.className="small";p.innerHTML="A saved cavern was found. Your progress will continue automatically."; $("intro").insertBefore(p,$("intro").querySelector(".actions"));
+}
+
+function resetSave(){
+  localStorage.removeItem("cozyCavernSave");location.reload();
+}
+
+$("startBtn").onclick=()=>{ensureAudio();started=true;paused=false;hideModal();toast(hadSave?"Welcome back to the hearth.":"The hearth remembers you.");};
+$("closeUpgrade").onclick=hideModal;
+$("closeJournal").onclick=hideModal;
+$("continueBtn").onclick=hideModal;
+$("restartBtn").onclick=resetSave;
+$("resumeBtn").onclick=hideModal;
+$("resetBtn").onclick=resetSave;
+$("audioBtn").onclick=()=>{ensureAudio();const muted=masterGain.gain.value>0;masterGain.gain.value=muted?0:.22;$("audioBtn").textContent=muted?"🔇 Muted":"🔊 Sound"};
+$("actBtn").onclick=interact;$("withdrawBtn").onclick=withdrawCrystal;$("upBtn").onclick=openUpgrade;$("journalBtn").onclick=toggleJournal;$("pauseBtn").onclick=()=>showModal("pause");
+
+addEventListener("keydown",e=>{
+  keys[e.code]=true;
+  if(["Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code))e.preventDefault();
+  if(e.repeat)return;
+  if(e.code==="KeyE"||e.code==="Space")interact();
+  if(e.code==="KeyR")withdrawCrystal();
+  if(e.code==="KeyU")openUpgrade();
+  if(e.code==="KeyJ")toggleJournal();
+  if(e.code==="Escape"){
+    if(!started)return;
+    if(paused)hideModal();else showModal("pause");
+  }
+});
+addEventListener("keyup",e=>keys[e.code]=false);
+
+const joy=$("joy"),knob=$("joyKnob");
+let joyId=null;
+function setJoy(e){
+  const r=joy.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+  let dx=e.clientX-cx,dy=e.clientY-cy;const max=r.width*.34,l=Math.hypot(dx,dy)||1;
+  if(l>max){dx=dx/l*max;dy=dy/l*max}
+  knob.style.transform=`translate(calc(-50% + ${dx}px),calc(-50% + ${dy}px))`;
+  touchMove.x=dx/max;touchMove.y=dy/max;
+}
+joy.addEventListener("pointerdown",e=>{joyId=e.pointerId;joy.setPointerCapture(joyId);setJoy(e)});
+joy.addEventListener("pointermove",e=>{if(e.pointerId===joyId)setJoy(e)});
+function endJoy(e){if(e.pointerId!==joyId)return;joyId=null;touchMove.x=touchMove.y=0;knob.style.transform="translate(-50%,-50%)"}
+joy.addEventListener("pointerup",endJoy);joy.addEventListener("pointercancel",endJoy);
+
+function keepInBounds(pos){
+  const r=Math.hypot(pos.x,pos.z);
+  if(r>43.5){pos.x*=43.5/r;pos.z*=43.5/r}
+}
+function movePlayer(dt){
+  let x=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0)+touchMove.x;
+  let z=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)+touchMove.y;
+  const l=Math.hypot(x,z);
+  if(l>.08){
+    x/=Math.max(1,l);z/=Math.max(1,l);
+    player.position.x+=x*state.speed*dt;player.position.z+=z*state.speed*dt;
+    keepInBounds(player.position);
+    const targetRot=Math.atan2(x,z);let d=((targetRot-player.rotation.y+Math.PI*3)%(Math.PI*2))-Math.PI;
+    player.rotation.y+=d*Math.min(1,dt*10);
+    body.position.y=1+Math.sin(elapsed*11)*.035;
+  }
+}
+function updateWarmth(dt){
+  const warm=inAnyWarmZone();
+  if(warm) state.warmth=Math.min(state.maxWarmth,state.warmth+16*dt);
+  else {
+    const depth=clamp((Math.hypot(player.position.x,player.position.z)-10)/34,0,1);
+    state.warmth-=state.warmthDrain*(1+depth*.7)*dt;
+  }
+  if(state.warmth<=0)faint();
+  const cold=1-state.warmth/state.maxWarmth;
+  $("coldOverlay").style.background=`rgba(78,150,200,${Math.max(0,(cold-.45)*.28)})`;
+  $("vignette").style.boxShadow=`inset 0 0 ${80+cold*80}px rgba(6,18,30,${cold*.65})`;
+  lanternLight.intensity=1.45+1.1*(state.warmth/state.maxWarmth);
+}
+function updateCamera(dt){
+  const desired=new THREE.Vector3(player.position.x,15,player.position.z+14);
+  if(cameraShake>0){
+    desired.x+=rand(-cameraShake,cameraShake);desired.y+=rand(-cameraShake,cameraShake);cameraShake=Math.max(0,cameraShake-dt*1.8);
+  }
+  camera.position.lerp(desired,1-Math.pow(.0005,dt));
+  camera.lookAt(player.position.x,0.6,player.position.z-2.2);
+}
+function animateWorld(dt){
+  flame.rotation.y+=dt*2.6;flame.scale.y=1.3+Math.sin(elapsed*9)*.15;flame2.rotation.y-=dt*3.1;
+  fireLight.intensity=4+Math.sin(elapsed*12)*.35+Math.sin(elapsed*7.7)*.2;
+  heartCrystal.rotation.y+=dt*.12;
+  for(const b of braziers)if(b.lit){b.flame.rotation.y+=dt*2;b.flame.scale.y=1+Math.sin(elapsed*8+b.index)*.12;b.light.intensity=3.2+Math.sin(elapsed*7+b.index)*.25}
+  for(const m of motes){m.position.y+=Math.sin(elapsed*m.userData.v+m.userData.p)*dt*.08;m.rotation.y+=dt}
+  for(const n of nodes){
+    if(n.alive&&n.type==="crystal")n.group.rotation.y+=dt*.12;
+    if(!n.alive){n.respawn-=dt;if(n.respawn<=0){n.alive=true;n.group.visible=true}}
+  }
+}
+function update(dt){
+  if(paused||!started)return;
+  elapsed+=dt;actCooldown=Math.max(0,actCooldown-dt);autosaveT+=dt;
+  movePlayer(dt);updateWarmth(dt);updateCamera(dt);animateWorld(dt);updateHint();updateUI();
+  if(autosaveT>5){autosaveT=0;save()}
+}
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;update(dt);
+  if(!started||paused){animateWorld(dt*.35);updateCamera(dt)}
+  renderer.render(scene,camera);requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+addEventListener("resize",()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);
+});
+document.addEventListener("visibilitychange",()=>{if(document.hidden&&started&&!paused)showModal("pause")});
+</script>
+</body>
+</html>
