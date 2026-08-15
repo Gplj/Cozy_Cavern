@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Cozy Cavern v2 — Kindle the Cavern</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="game"></div>
+
+  <div id="loading" class="screen">
+    <div class="loading-card">
+      <div class="sigil">✦</div>
+      <h1>Cozy Cavern</h1>
+      <p id="loadingText">Waking the old passages…</p>
+      <div class="track"><div id="loadingBar"></div></div>
+    </div>
+  </div>
+
+  <div id="hud" class="hidden">
+    <div class="brand">COZY CAVERN <span>v2 · kindle the cavern</span></div>
+
+    <div id="objective" class="panel objective-card">
+      <small>OBJECTIVE</small>
+      <b id="objectiveTitle">Supply the hearth</b>
+      <span id="objectiveText">Bank 0/4 stone and 0/6 crystal.</span>
+      <div id="brazierStatus" class="brazier-status hidden"></div>
+    </div>
+
+    <div id="warmthCard" class="warmth-card">
+      <div class="flame">◆</div>
+      <div class="warm-copy"><small>WARMTH</small><b id="warmthStatus">Safe &amp; glowing</b></div>
+      <strong id="warmthText">100%</strong>
+      <div class="warm-track"><div id="warmthFill"></div></div>
+    </div>
+
+    <div class="panel pack-card">
+      <small>PACK <b id="packCount">0 / 10</b></small>
+      <div class="resource-row"><span>◆ Crystal</span><b id="crystalCount">0</b><span>⬟ Stone</span><b id="stoneCount">0</b></div>
+      <div class="bank-row"><span>Hearth storage</span><span>◆ <b id="bankCrystal">0</b></span><span>⬟ <b id="bankStone">0</b></span></div>
+    </div>
+
+    <div id="prompt" class="prompt hidden"><span id="promptText"></span></div>
+    <div id="toast" class="toast"></div>
+
+    <div class="controls">
+      <b>Kindle the Cavern</b>
+      <span>WASD / Arrows · move</span>
+      <span>Shift · run</span>
+      <span>E / Space · interact or mine</span>
+      <span>R · withdraw crystal at hearth</span>
+      <span>Camera · fixed follow</span>
+      <span>Mouse wheel · zoom</span>
+      <span class="dev">1–4 inspect animation · 0 exits</span>
+    </div>
+    <div id="animDebug" class="debug">Animation: auto</div>
+  </div>
+
+  <div id="win" class="screen win-screen hidden">
+    <div class="loading-card win-card">
+      <div class="sigil win-sigil">◆</div>
+      <h1>The Heart Is Warm</h1>
+      <p>The ancient cavern stirs awake. Every lit refuge now carries the warmth of home.</p>
+      <p id="winStats" class="win-stats"></p>
+      <button id="continueBtn" type="button">Keep exploring</button>
+    </div>
+  </div>
+
+  <div id="error" class="screen hidden">
+    <div class="loading-card error-card">
+      <h1>Couldn’t light the cavern</h1>
+      <p id="errorText"></p>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

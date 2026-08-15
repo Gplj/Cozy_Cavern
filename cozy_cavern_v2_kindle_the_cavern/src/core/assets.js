@@ -1,0 +1,20 @@
+export const ASSETS = {
+  adventurer: './public/assets/characters/adventurer.glb',
+  fireplace: './public/assets/environment/fireplace.glb',
+  lantern: './public/assets/environment/lantern.glb',
+  crystalShard: './public/assets/environment/crystal_shard.glb',
+  crystalCluster: './public/assets/environment/crystal_cluster.glb',
+  plant: './public/assets/environment/plant.glb',
+  vine: './public/assets/environment/vine.glb',
+  mushroom: './public/assets/environment/mushroom.glb',
+  rock: './public/assets/environment/rock.glb',
+  wall: './public/assets/environment/wall.glb',
+  stairs: './public/assets/environment/stairs.glb',
+  chest: './public/assets/environment/chest.glb',
+  logs: './public/assets/environment/logs.glb',
+  barrel: './public/assets/environment/barrel.glb',
+  stool: './public/assets/environment/stool.glb',
+  table: './public/assets/environment/table.glb',
+  tableBooks: './public/assets/environment/table_books.glb',
+  banner: './public/assets/environment/banner.glb'
+};
